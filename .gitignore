@@ -1,1 +1,6 @@
 *.zip
+pyproject.toml
+.python-version
+data/video
+*.mp4
+uv.lock
