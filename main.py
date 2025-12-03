@@ -7,41 +7,39 @@ import keras
 from PIL import Image
 from rembg import remove
 
-types = input("types:")
+
 mp_seg = mp.solutions.selfie_segmentation.SelfieSegmentation(model_selection=1)
 mp_hands = solutions.hands
 cap = cv2.VideoCapture(0)
 model = keras.saving.load_model("vgg19_naruto_hand_sign_model.h5")
 
 
-def crop_hand(x_coords, y_coords, h, w, frame ):
-    size = 340
-    # Get bounding box of hand
+def crop_hand(x_coords, y_coords, h, w, frame):
+    # Calculate bounding box base on the dimensions of screen capture * x,y cooords
     x_min = int(min(x_coords) * w)
     x_max = int(max(x_coords) * w)
     y_min = int(min(y_coords) * h)
     y_max = int(max(y_coords) * h)
 
-    # Compute current width and height
     x_len = x_max - x_min
     y_len = y_max - y_min
 
-    # Compute padding needed
-    pad_x = max(0, (size - x_len) // 2)
-    pad_y = max(0, (size - y_len) // 2)
-
-    # Apply padding, clip to image boundaries
-    x_min = max(0, x_min - pad_x)
-    x_max = min(w, x_max + pad_x)
-    y_min = max(0, y_min - pad_y)
-    y_max = min(h, y_max + pad_y)
-
+    # padding when size < 224
+    padding_x = 0
+    padding_y = 0
+    if x_len <= 350:
+        padding_x = int((224 - x_len) / 2)
+        x_min = max(0, x_min - padding_x)
+        x_max = min(w, x_max + padding_x)
+    if y_len < 350:
+        padding_y = int((224 - y_len) / 2)
+        y_max = min(h, y_max + padding_y)
+        y_min = max(0, y_min - padding_y)
     # Crop hand
     hand_crop = frame[y_min:y_max, x_min:x_max]
 
     # Draw box for visualization
     cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
-
     return hand_crop
 
 
@@ -72,15 +70,15 @@ def get_prediciton(y_pred_proba):
         "idk",
     ]
     y_pred_index = -1
-    y_pred_index = np.argmax(y_pred_proba)
-    #if y_pred_proba[0][predict_index] < 0.5:
-    return hand_sign[y_pred_index]
-    #return hand_sign[-1]
+    predict_index = np.argmax(y_pred_proba)
+    if y_pred_proba[0][predict_index] < 0.5:
+        return hand_sign[y_pred_index]
+    return hand_sign[-1]
 
 
 with mp_hands.Hands(
     static_image_mode=False,
-    max_num_hands=2,  # Detect one hand
+    max_num_hands=1,  # Detect one hand
     min_detection_confidence=0.7,
     min_tracking_confidence=0.5,
 ) as hands:
@@ -95,45 +93,50 @@ with mp_hands.Hands(
         frame = cv2.flip(frame, 1)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         result = hands.process(rgb)
-        
+
         if result.multi_hand_landmarks:
-            h, w, c = frame.shape
-            
-            all_x = []
-            all_y = []
-
             for hand_landmarks in result.multi_hand_landmarks:
-                all_x.extend([lm.x for lm in hand_landmarks.landmark])
-                all_y.extend([lm.y for lm in hand_landmarks.landmark])
+                # Get frame dimensions
+                h, w, c = frame.shape
 
-            # Now all_x and all_y contain landmarks from both hands
-            hand_crop = crop_hand(all_x, all_y, h, w, frame)
+                # Extract all landmark coordinates
+                # land mark coordinates are save as 0 to 1
+                x_coords = [lm.x for lm in hand_landmarks.landmark]
+                y_coords = [lm.y for lm in hand_landmarks.landmark]
 
-            if hand_crop is not None and hand_crop.size != 0:
-                hand_crop_resize = cv2.resize(hand_crop, (224, 224))
-                path = "data/my_dataset/"+types+"/"+str(frame_count)+".png"
-                cv2.imwrite(path, hand_crop_resize)
-                img = hand_crop_resize.astype("float32") / 255.0
-                img = np.expand_dims(img, axis=0)
-                
-                cv2.imshow("hand",hand_crop_resize)
-                if frame_count % interval == 0:
-                    prediction = model.predict(img)
-                    predict = get_prediciton(prediction)
-                    cv2.putText(
-                        frame,
-                        f"Prediction: {predict}",
-                        (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (0, 255, 0),
-                        2,
-                    )
+                hand_crop = crop_hand(x_coords, y_coords, h, w, frame)
 
-            frame_count += 1
+                # print(hand_crop)
+                if hand_crop is not None and hand_crop.size != 0:
+                    #hand_crop = removebg_img(hand_crop)
 
-        # Now hand_crop contains just the hand region
-        # Next: resize to 224x224 and feed to model
+                    cv2.imshow("crop", hand_crop)
+                    cv2.moveWindow("crop", 300, 600)
+
+                    hand_crop_resize = cv2.resize(hand_crop, (224, 224))
+
+                    # normalized to 0-1
+                    img = hand_crop_resize.astype("float32") / 255.0
+                    img = np.expand_dims(img, axis=0)
+
+                    if frame_count % interval == 0:
+                        prediction = model.predict(img)
+                        predict = get_prediciton(prediction)
+                        print(predict)
+                        cv2.putText(
+                            frame,
+                            f"Prediction: {predict}",
+                            (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            1,
+                            (0, 255, 0),
+                            2,
+                        )
+
+                frame_count += 1
+
+                # Now hand_crop contains just the hand region
+                # Next: resize to 224x224 and feed to model
 
         cv2.imshow("Hand Detection", frame)
         if cv2.waitKey(1) == ord("q"):
