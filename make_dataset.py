@@ -86,16 +86,18 @@ with mp_hands.Hands(
         result = hands.process(rgb)
 
         if result.multi_hand_landmarks:
+            # Get frame dimensions
+            h, w, c = frame.shape
+            all_x = []
+            all_y = []
             for hand_landmarks in result.multi_hand_landmarks:
-                # Get frame dimensions
-                h, w, c = frame.shape
-
                 # Extract all landmark coordinates
                 # land mark coordinates are save as 0 to 1
-                x_coords = [lm.x for lm in hand_landmarks.landmark]
-                y_coords = [lm.y for lm in hand_landmarks.landmark]
+                all_x += [lm.x for lm in hand_landmarks.landmark]
+                all_y += [lm.y for lm in hand_landmarks.landmark]
 
-                hand_crop = crop_hand(x_coords, y_coords, h, w, frame)
+
+                hand_crop = crop_hand(all_x, all_y, h, w, frame)
 
                 # print(hand_crop)
                 if hand_crop is not None and hand_crop.size != 0:
