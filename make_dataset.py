@@ -75,7 +75,7 @@ with mp_hands.Hands(
 ) as hands:
 
     frame_count = 0
-    interval = 10
+    interval = 2
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -110,7 +110,7 @@ with mp_hands.Hands(
                     img = np.expand_dims(img, axis=0)
                     
                     if frame_count % interval == 0:
-                        path = "data/my_data/"+types+"/"+str(frame_count/10)+".png"
+                        path = "data/my_dataset/"+types+"/"+str(frame_count//interval)+".png"
                         cv2.imwrite(path,hand_crop_resize)
                         """
                         prediction = model.predict(img)

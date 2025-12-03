@@ -1,6 +1,7 @@
 *.zip
 pyproject.toml
 .python-version
-data/video
+data
 *.mp4
 uv.lock
+model
