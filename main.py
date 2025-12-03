@@ -3,16 +3,19 @@ import numpy as np
 import mediapipe as mp
 from mediapipe import solutions
 import keras
+import pickle
 
+from features_extraction import * 
 
-types = input("types:")
 mp_seg = mp.solutions.selfie_segmentation.SelfieSegmentation(model_selection=1)
 mp_hands = solutions.hands
 cap = cv2.VideoCapture(0)
 #model = keras.saving.load_model("vgg19_naruto_hand_sign_model.h5")
+with open('model/knn.pkl', 'rb') as f:
+    model = pickle.load(f)
 
 
-def crop_hand(x_coords, y_coords, h, w, frame ):
+def crop_hand(x_coords, y_coords, h, w, frame, draw):
     size = 400;
     # Calculate bounding box base on the dimensions of screen capture * x,y cooords
     # Get bounding box of hand
@@ -39,12 +42,11 @@ def crop_hand(x_coords, y_coords, h, w, frame ):
     hand_crop = frame[y_min:y_max, x_min:x_max]
 
     # Draw box for visualization
-    cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+    cv2.rectangle(draw, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
 
     return hand_crop
 
-def get_prediciton(y_pred_proba):
-    print(y_pred_proba)
+def get_prediciton(y_pred):
     hand_sign = [
         "bird",
         "boar",
@@ -60,11 +62,10 @@ def get_prediciton(y_pred_proba):
         "tiger",
         "idk",
     ]
-    y_pred_index = -1
-    predict_index = np.argmax(y_pred_proba)
-    if y_pred_proba[0][predict_index] < 0.5:
-        return hand_sign[y_pred_index]
-    return hand_sign[-1]
+    #if y_pred_proba[0][y_pred] < 0.2:
+    prediciton = hand_sign[int(y_pred)]
+    return prediciton
+    #return hand_sign[-1]
 
 
 with mp_hands.Hands(
@@ -75,7 +76,8 @@ with mp_hands.Hands(
 ) as hands:
 
     frame_count = 0
-    interval = 2
+    interval = 10
+    prediction = "Waiting"
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -97,8 +99,8 @@ with mp_hands.Hands(
                 all_x += [lm.x for lm in hand_landmarks.landmark]
                 all_y += [lm.y for lm in hand_landmarks.landmark]
 
-
-                hand_crop = crop_hand(all_x, all_y, h, w, frame)
+                frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                hand_crop = crop_hand(all_x, all_y, h, w, frame_gray, frame)
 
                 # print(hand_crop)
                 if hand_crop is not None and hand_crop.size != 0:
@@ -107,26 +109,27 @@ with mp_hands.Hands(
                     cv2.moveWindow("crop", 300, 600)
                     hand_crop_resize = cv2.resize(hand_crop, (224, 224))
 
-
+                    """ only use for vgg
                     # normalized to 0-1
                     img = hand_crop_resize.astype("float32") / 255.0
                     img = np.expand_dims(img, axis=0)
+                    """
                     
+                    extracted_img = feature_extraction(hand_crop_resize)
                     if frame_count % interval == 0:
-                        """
-                        prediction = model.predict(img)
-                        predict = get_prediciton(prediction)
-                        print(predict)
-                        cv2.putText(
-                            frame,
-                            f"Prediction: {predict}",
-                            (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            1,
-                            (0, 255, 0),
-                            2,
-                        )
-                        """
+                        pred = model.predict([extracted_img])
+                        prediction = get_prediciton(pred)
+
+                    cv2.putText(
+                        frame,                          # Image to draw on
+                        f"Prediction: {prediction}",    # Text to display
+                        (10, 30),                       # Position (x, y) - top-left corner
+                        cv2.FONT_HERSHEY_SIMPLEX,       # Font
+                        1,                              # Font scale (size)
+                        (0, 255, 0),                    # Color in BGR (green)
+                        2,                              # Thickness
+                        cv2.LINE_AA                     # Anti-aliasing (optional, smoother text)
+                    )
 
                 frame_count += 1
 
