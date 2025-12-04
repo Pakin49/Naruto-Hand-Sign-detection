@@ -8,7 +8,7 @@ def extract_hog(image):
     # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Resize for consistency
-    image = cv2.resize(image, (128, 128))
+    image = cv2.resize(image, (224, 224))
 
     # Extract HOG
     features, hog_img = hog(

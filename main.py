@@ -11,7 +11,7 @@ mp_seg = mp.solutions.selfie_segmentation.SelfieSegmentation(model_selection=1)
 mp_hands = solutions.hands
 cap = cv2.VideoCapture(0)
 #model = keras.saving.load_model("vgg19_naruto_hand_sign_model.h5")
-with open('model/knn.pkl', 'rb') as f:
+with open('model/log_features.pkl', 'rb') as f:
     model = pickle.load(f)
 
 

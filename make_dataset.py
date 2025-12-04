@@ -5,8 +5,6 @@ from mediapipe import solutions
 import keras
 
 
-
-
 def crop_hand(x_coords, y_coords, h, w, frame ):
     size = 400;
     # Calculate bounding box base on the dimensions of screen capture * x,y cooords
@@ -141,3 +139,5 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
+
+main()
